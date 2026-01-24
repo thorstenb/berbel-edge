@@ -1,0 +1,8 @@
+.tox/
+.ruff_cache/
+*.py[codz]
+__pycache__/
+*$py.class
+*~
+\#*
+.\#*
