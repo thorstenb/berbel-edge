@@ -88,6 +88,17 @@ Skyline.
 - Raw: 01:4f:00:00:00:00:00:00:05:ff:15:00:00:ff:00:00:00:00:01:00:00:00:00:00:00:00:00:00:00:00:00
                                      [ red  ]
 
+switching all lights off: put zero into given byte:
+
+  Raw: 01:4f:00:00:82:00:82:00:05:00:ff:71:00:ff:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00
+                   down
+
+  Raw: 01:4f:00:00:00:00:82:00:05:00:ff:71:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00
+                         top
+
+  Raw: 01:4f:00:00:00:00:00:00:05:00:ff:71:00:ff:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00
+                                              effect
+
 Some example states, with description on what the physical hardware
 did:
 
@@ -96,6 +107,12 @@ did:
 
 - status update line, everything switched off:
   - Raw: 01:4f:00:00:00:00:00:00:05:00:ff:71:00:00:00:00:00:00:01:00:00:00:00:00:00:00:00:00:00:00:00
+
+We **should** be able to directly write into this status register, the
+BLE trace has a number of instances:
+
+* destination UUID: "btatt.uuid128": "f0:06:f0:06:57:45:40:53:80:43:62:65:72:62:65:6c"
+* then write a value of 31 bytes, as retrieved with status callback, e.g. "01:4f:00:00:ba:00:00:00:05:5c:ff:60:00:00:00:00:00:00:01:00:00:00:00:00:00:00:00:00:00:00:00"
 
 
 ## full BLE service_explorer trace
@@ -193,7 +210,7 @@ place at the time:
   0x0c (sent twice, first to switch off, then delayed-off mode)
 
 - switched on down light
-  0x0a
+  command: 0x0a
   - changed light temp to warm, then back to cold
     "btatt.uuid128": "f0:06:f0:07:57:45:40:53:80:43:62:65:72:62:65:6c"
     "btatt.value": "4f:90:00:00:00:00:1a:ff:23:00:00:00:00:00:00:00:00:01:00:00:00:00:00:00:00:00"
@@ -209,7 +226,7 @@ place at the time:
     "btatt.value": "01:4f:00:00:ff:00:00:00:05:00:ff:8b:00:00:00:00:00:00:01:00:00:00:00:00:00:00:00:00:00:00:00"
 
 - switched off down light
-  - entirely unclear - 0x0a again?
+  - press 0x0a again
 
 - switched on effect light
    "btatt.uuid128": "f0:06:f0:06:57:45:40:53:80:43:62:65:72:62:65:6c"
@@ -280,9 +297,11 @@ Screne:
       "btatt.value": "01:4f:00:00:00:00:4f:00:05:5c:ff:60:00:00:00:00:00:00:01:00:00:00:00:00:00:00:00:00:00:00:00"
 
 Other values encountered (for uuid" "f0:06:f0:04:57:45:40:53:80:43:62:65:72:62:65:6c")
-- "btatt.value": "00:12" (switch on top light?)
-- "btatt.value": "00:0d" (switch on down light, low-intensity mode?)
-- "btatt.value": "00:09" (lift down?)
+- "btatt.value": "00:12" (toggle top light)
+- "btatt.value": "00:0d" (lift down)
+- "btatt.value": "00:09" (lift up)
+- "btatt.value": "00:06" (toggle effect light)
+- "btatt.value": "00:0a" (toggle down light)
 
 then:
 - "btatt.uuid128": "f0:06:f0:06:57:45:40:53:80:43:62:65:72:62:65:6c"
@@ -294,10 +313,6 @@ then:
   "btatt.value": "74:65:73:74:31:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:4f:00:00:00:cd:c7:41:00:05:ff:5c:ff:60:00:00:02"
 - "btatt.uuid128": "f0:06:f0:06:57:45:40:53:80:43:62:65:72:62:65:6c"
   "btatt.value": "01:4f:00:00:00:00:00:00:05:5c:ff:60:00:ff:00:00:00:00:01:00:00:00:00:00:00:00:00:00:03:00:00"
-
-then:
-- "btatt.value": "00:0d"
-- "btatt.value": "00:0a"
 
 then:
 - "btatt.uuid128": "f0:06:f0:07:57:45:40:53:80:43:62:65:72:62:65:6c"
@@ -317,5 +332,12 @@ then:
 - "btatt.uuid128": "f0:06:f0:06:57:45:40:53:80:43:62:65:72:62:65:6c"
   "btatt.value": "01:4f:00:00:ba:00:00:00:05:5c:ff:60:00:00:00:00:00:00:01:00:00:00:00:00:00:00:00:00:00:00:00"
 
-then:
-- "btatt.value": "00:0a"
+Conclusion: those single-byte commands are corresponding to key
+presses on the remote control. For example 0x0a means "downlight
+button pressed", then followed by 0x00 meaning "last button
+released". Long press of buttons sometimes triggers extra effects,
+like dimming lights up or down slowly. And non-long press is very
+short, here's an up/down sequence from the trace:
+
+ * down: "frame.time": "2026-01-24T15:07:27.903773000Z",
+ * up:   "frame.time": "2026-01-24T15:07:27.960666000Z",
