@@ -16,43 +16,42 @@
      Base UUID: f006f0XX-5745-4053-8043-62657262656c
      The last 6 bytes 62:65:72:62:65:6c decode to ASCII "berbel".
 
-     Characteristics in protocol
-     ┌────────┬──────────┬───────────────────────────────────┐
-     │ Handle │   UUID   │              Purpose              │
-     ├────────┼──────────┼───────────────────────────────────┤
-     │ 0x0013 │ f006f002 │ Device name/extended info         │
-     ├────────┼──────────┼───────────────────────────────────┤
-     │ 0x0016 │ f006f003 │ Scene configuration data          │
-     ├────────┼──────────┼───────────────────────────────────┤
-     │ 0x0019 │ f006f004 │ Status data block 1 (31 bytes)    │
-     ├────────┼──────────┼───────────────────────────────────┤
-     │ 0x001c │ f006f005 │ Command write endpoint            │
-     ├────────┼──────────┼───────────────────────────────────┤
-     │ 0x001f │ f006f006 │ Status data block 2 (13 bytes)    │
-     ├────────┼──────────┼───────────────────────────────────┤
-     │ 0x0022 │ f006f006 │ Main status (indications enabled) │
-     ├────────┼──────────┼───────────────────────────────────┤
-     │ 0x0025 │ f006f007 │ Secondary status data             │
-     └────────┴──────────┴───────────────────────────────────┘
+     Characteristics in protocol. Value handles, taken from the
+     service explorer dump (value handle = declaration handle + 1)
+     and cross-checked against the Wireshark trace. An earlier
+     version of this table had every UUID shifted by one row.
+
+     Handle  UUID      Purpose
+     0x13    f006f001  extended device name ("SKYLINE_EDGE_100_PLAY")
+     0x16    f006f002  device name ("SKYLINE_EDGE")
+     0x19    f006f003  acknowledgment, 5 bytes, indicated after every command
+     0x1c    f006f004  command write endpoint (2 bytes, press/release)
+     0x1f    f006f005  per-function activity flags (13 bytes)
+     0x22    f006f006  main status (31 bytes, indications on change)
+     0x25    f006f007  settings block, color temperatures (26 bytes)
 
 
-     Status Data Format (31 bytes)
+     Status Data Format (31 bytes, main status f006f006)
 
      Example: 01:4f:00:00:ff:00:00:00:05:00:ff:8b:00:00:00:00:01:00:01:00...
 
-     ┌────────┬─────────────┬─────────────────────────────┐
-     │ Offset │   Sample    │       Interpretation        │
-     ├────────┼─────────────┼─────────────────────────────┤
-     │ 0      │ 01          │ Status flag                 │
-     ├────────┼─────────────┼─────────────────────────────┤
-     │ 1      │ 4f          │ Device type ('O')           │
-     ├────────┼─────────────┼─────────────────────────────┤
-     │ 4      │ 00/ff       │ Light state (00=off, ff=on) │
-     ├────────┼─────────────┼─────────────────────────────┤
-     │ 8      │ 05          │ Current fan speed level     │
-     ├────────┼─────────────┼─────────────────────────────┤
-     │ 16-17  │ 00:00→04:00 │ Running counter/timer       │
- 	 └────────┴─────────────┴─────────────────────────────┘
+     Offset  Meaning
+     0       lift motion: 01 idle at top, 02 stopped mid-travel,
+             03 moving up, 04 moving down, 05 and 06 the same two
+             directions within the end-approach zone
+     1       lift position: 0x4f fully up, rising while the lift
+             moves down, 0x91 at the bottom end stop in the trace
+     4       down light brightness (00-ff)
+     5       effect light brightness in white mode
+     6       top light brightness (00-ff)
+     7       effect program running flag
+     8       constant 05, meaning unknown
+     9-11    effect light color (red, green, blue)
+     13      effect light brightness in color mode
+     16      fan level 0-4 (4 = intensive level P)
+     17      fan run-on (delayed shutoff) active
+     18      constant 01, meaning unknown
+     28      scene related
 
 
 ## Retrieved info from running berbel-ctrl
@@ -113,6 +112,28 @@ BLE trace has a number of instances:
 
 * destination UUID: "btatt.uuid128": "f0:06:f0:06:57:45:40:53:80:43:62:65:72:62:65:6c"
 * then write a value of 31 bytes, as retrieved with status callback, e.g. "01:4f:00:00:ba:00:00:00:05:5c:ff:60:00:00:00:00:00:00:01:00:00:00:00:00:00:00:00:00:00:00:00"
+
+
+## Lift state in the main status frame
+
+Cross-checking every command write in ble-packettrace.json against the
+indications that follow it shows the lift is fully observable in the
+main status frame (f006f006):
+
+- Byte 1 is the lift position. 0x4f is fully up; the value rises while
+  the lift moves down and reached 0x91 at the bottom end stop in the
+  trace. During movement the hood sends indications several times per
+  second, so the position can be followed live.
+- Byte 0 is the motion state: 01 idle at the top, 02 stopped
+  mid-travel, 03 moving up, 04 moving down, 05 and 06 the same two
+  directions within the end-approach zone.
+- Command 0x0d starts moving down, 0x09 up. A single short press runs
+  the lift to the end position, where it stops on its own. Pressing
+  the same direction again while the lift is moving stops it
+  mid-travel (seen in the trace at position 0x83, confirmed on the
+  physical device).
+- The earlier "Device type ('O')" reading of byte 1 was a coincidence:
+  0x4f is simply the fully-up position.
 
 
 ## full BLE service_explorer trace
@@ -272,11 +293,13 @@ place at the time:
 
 - moved lift down (til end position reached)
   "btatt.uuid128": "f0:06:f0:04:57:45:40:53:80:43:62:65:72:62:65:6c"
-  "btatt.value": "00:12"
+  "btatt.value": "00:0d"
+  (an earlier version of these notes said 0x12 here; cross-checking
+  the trace shows 0x12 toggles the top light, and the lift bytes in
+  the status frame only move after 0x0d and 0x09)
 
 - moved lift up (til end position reached)
-  "btatt.value": "00:00"
-  no, that is unlikely. 00:00 appears way too often in the trace.
+  "btatt.value": "00:09"
 
 Screne:
 
