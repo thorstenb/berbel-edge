@@ -1,12 +1,20 @@
 """BerbelDevice tests that run without a radio.
 
-The tests inject captured frames through the indication handlers and check the state
-tracking, the lift calibration, the position percentage, the callback plumbing, the
-command presses for the fan and the lift, and the read-modify-write frame helpers for
-the lights and the color temperatures. The Bluetooth client is a small fake that records
-writes; nothing connects. The Kelvin mapping helpers from the integration constants are
-tested here too, loaded straight from their source file because they need no Home
-Assistant.
+The tests inject captured frames through the indication handlers and
+check:
+ - the state tracking
+ - the lift calibration
+ - the position percentage
+ - the callback plumbing
+ - the command button press thingits for the fan and the lift
+ - and the read-modify-write frame helpers for the lights and the
+   color temperatures.
+
+The Bluetooth client is a small mockup that records writes. The Kelvin
+mapping helpers from the integration constants are tested here too,
+loaded straight from their source file because they have no Home
+Assistant dependencies.
+
 """
 
 import asyncio
@@ -40,9 +48,7 @@ from berbel_ble.const import (
     STATE_OFFSET_TOP_BRIGHTNESS,
 )
 
-# The integration-level const module holds the Kelvin mapping helpers. The integration
-# package __init__ imports Home Assistant, which is not installed here, so the module is
-# loaded straight from its source file instead of through the package.
+# hack to load Kelvin mapping helpers
 _INTEGRATION_CONST_SPEC = importlib.util.spec_from_file_location(
     "berbel_integration_const",
     Path(__file__).resolve().parent.parent / "custom_components" / "berbel" / "const.py",
@@ -52,9 +58,7 @@ _INTEGRATION_CONST_SPEC.loader.exec_module(integration_const)
 
 ADDRESS = "9C:9E:FF:FF:FF:FF"
 
-# The real mid-travel capture from berbel-info.md. The frame helper below swaps in the
-# motion byte, the raw position and any extra bytes each test needs, so every other byte
-# stays a value the hood actually sent.
+# Some real-world mid-travel capture from berbel-info.md
 FRAME_TEMPLATE = bytes.fromhex(
     "02:83:00:00:a8:00:00:00:05:5c:ff:60:00:ff:00:00:00:00:01:"
     "00:00:00:00:00:00:00:00:00:00:00:00".replace(":", "")
@@ -70,9 +74,8 @@ class FakeBLEDevice:
 
 
 class FakeClient:
-    """A connected Bluetooth client that records every GATT write. When a respond
-    callback is set, it is called with each write, so a test can deliver the indication
-    the hood sends in answer to a write."""
+    """A connected Bluetooth client that records every GATT write. Use respond
+    callbacks to simulate Berbel device answers."""
 
     def __init__(self) -> None:
         self.is_connected = True
@@ -90,9 +93,12 @@ def make_device(**kwargs) -> BerbelDevice:
 
 
 def connected_device(echo_frames: bool = False) -> tuple[BerbelDevice, FakeClient]:
-    """A device with a fake connected client, so the write helpers can run. With
-    echo_frames, every frame write comes straight back as an indication carrying the
-    written bytes, which is how the hood confirms a frame write."""
+    """A device with a fake connected client, so the write helpers can
+    run. With echo_frames, every frame write comes straight back as an
+    indication carrying the written bytes, which is how the hood
+    confirms a frame write.
+
+    """
     device = make_device()
     client = FakeClient()
     device._client = client
@@ -131,8 +137,8 @@ def inject_settings(device: BerbelDevice, data: bytes) -> None:
 
 
 def press_writes(*codes: int) -> list[tuple[str, bytes]]:
-    """The GATT writes a sequence of button presses produces: each command code is
-    written to the command characteristic and followed by a release."""
+    """The GATT writes a sequence of button presses: each command code is
+    written to the command characteristic - followed by a release command."""
     writes = []
     for code in codes:
         writes.append((CHAR_COMMAND, bytes([0x00, code])))
@@ -204,12 +210,12 @@ def test_settings_callback_fires_until_unsubscribed():
 
 def test_default_calibration_matches_the_reference_installation():
     device = make_device()
-    assert device.lift_top_raw == 0x4F
-    assert device.lift_bottom_raw == 0x91
+    assert device.lift_top_raw == 0x0F
+    assert device.lift_bottom_raw == 0xE0
 
 
 def test_idle_at_top_records_the_top_end_stop():
-    device = make_device()
+    device = make_device(lift_top_raw=0x4F, lift_bottom_raw=0x91)
     seen = []
     device.register_calibration_callback(lambda top, bottom: seen.append((top, bottom)))
     inject(device, frame(LiftMotion.IDLE_TOP, 0x52))
@@ -219,7 +225,7 @@ def test_idle_at_top_records_the_top_end_stop():
 
 
 def test_idle_at_top_with_the_known_value_fires_no_callback():
-    device = make_device()
+    device = make_device(lift_top_raw=0x4F, lift_bottom_raw=0x91)
     seen = []
     device.register_calibration_callback(lambda top, bottom: seen.append((top, bottom)))
     inject(device, frame(LiftMotion.IDLE_TOP, 0x4F))
@@ -227,7 +233,7 @@ def test_idle_at_top_with_the_known_value_fires_no_callback():
 
 
 def test_down_run_that_stops_on_its_own_records_the_bottom_end_stop():
-    device = make_device()
+    device = make_device(lift_top_raw=0x4F, lift_bottom_raw=0x91)
     seen = []
     device.register_calibration_callback(lambda top, bottom: seen.append((top, bottom)))
     inject(device, frame(LiftMotion.MOVING_DOWN, 0x80))
@@ -242,7 +248,7 @@ def test_down_run_that_stops_on_its_own_records_the_bottom_end_stop():
 
 
 def test_requested_stop_records_no_bottom_end_stop():
-    device = make_device()
+    device = make_device(lift_top_raw=0x4F, lift_bottom_raw=0x91)
     device._client = FakeClient()
     seen = []
     device.register_calibration_callback(lambda top, bottom: seen.append((top, bottom)))
@@ -254,7 +260,7 @@ def test_requested_stop_records_no_bottom_end_stop():
 
 
 def test_up_run_that_stops_records_no_bottom_end_stop():
-    device = make_device()
+    device = make_device(lift_top_raw=0x4F, lift_bottom_raw=0x91)
     inject(device, frame(LiftMotion.MOVING_UP, 0x7A))
     inject(device, frame(LiftMotion.STOPPED, 0x78))
     assert device.lift_bottom_raw == 0x91
@@ -287,18 +293,18 @@ def test_lift_position_is_none_before_the_first_frame():
 
 
 def test_lift_position_spans_the_calibrated_range():
-    device = make_device()
+    device = make_device(lift_top_raw=0x4F, lift_bottom_raw=0x91)
     inject(device, frame(LiftMotion.IDLE_TOP, 0x4F))
     assert device.lift_position_pct() == 100
     inject(device, frame(LiftMotion.STOPPED, 0x91))
     assert device.lift_position_pct() == 0
     inject(device, frame(LiftMotion.STOPPED, 0x83))
-    # (0x91 - 0x83) * 100 / (0x91 - 0x4f) rounds to 21 percent.
+    # (0x91 - 0x83) * 100 / (0x91 - 0x4f) is roughly 21%.
     assert device.lift_position_pct() == 21
 
 
 def test_lift_position_is_clamped_outside_the_calibrated_range():
-    device = make_device()
+    device = make_device(lift_top_raw=0x4F, lift_bottom_raw=0x91)
     inject(device, frame(LiftMotion.STOPPED, 0x20))
     assert device.lift_position_pct() == 100
     inject(device, frame(LiftMotion.STOPPED, 0xA0))
@@ -415,7 +421,7 @@ def test_set_top_light_changes_the_brightness_and_round_trips_the_rest():
 
 def test_set_effect_color_sets_the_color_bytes_and_switches_white_mode_off():
     device, client = connected_device(echo_frames=True)
-    # Start from a frame with the white mode on, so the write provably switches it off.
+    # Start from a frame with the white mode on, so the write for sure switches it off.
     last = frame(
         LiftMotion.IDLE_TOP, 0x4F, {STATE_OFFSET_EFFECT_WHITE_BRIGHTNESS: 0x99}
     )
@@ -440,7 +446,7 @@ def test_set_effect_color_sets_the_color_bytes_and_switches_white_mode_off():
 
 def test_set_effect_white_sets_the_brightness_and_switches_color_mode_off():
     device, client = connected_device(echo_frames=True)
-    # The template frame has the color mode on, so the write provably switches it off.
+    # The template frame has the color mode on, so the write for sure switches it off.
     last = frame(LiftMotion.IDLE_TOP, 0x4F)
     inject(device, last)
     asyncio.run(device.set_effect_white(0x55))
@@ -464,8 +470,9 @@ def test_each_color_temp_setter_changes_only_its_own_settings_byte():
     asyncio.run(device.set_down_color_temp(0x20))
     asyncio.run(device.set_effect_color_temp(0x40))
     asyncio.run(device.set_top_color_temp(0x60))
-    # Each write starts from the frame the previous write left on the hood, so the
-    # changed bytes accumulate and everything else round-trips unchanged.
+    # Each write starts from the frame the previous write has
+    # imprinted on the hood. Modified bytes accumulate, and everything
+    # else round-trips unchanged.
     first = frame_with(SETTINGS_FRAME, {SETTINGS_OFFSET_DOWN_COLOR_TEMP: 0x20})
     second = frame_with(first, {SETTINGS_OFFSET_EFFECT_COLOR_TEMP: 0x40})
     third = frame_with(second, {SETTINGS_OFFSET_TOP_COLOR_TEMP: 0x60})
@@ -481,7 +488,7 @@ def test_kelvin_byte_mapping_spans_the_full_scale_with_warmer_as_higher():
     assert integration_const.kelvin_to_byte(integration_const.MIN_KELVIN) == 255
     assert integration_const.byte_to_kelvin(0) == integration_const.MAX_KELVIN
     assert integration_const.byte_to_kelvin(255) == integration_const.MIN_KELVIN
-    # A warmer (lower Kelvin) light maps onto a higher byte value.
+    # A warmer (lower Kelvin) light leads to higher byte value.
     assert integration_const.kelvin_to_byte(3000) > integration_const.kelvin_to_byte(6000)
 
 

@@ -54,8 +54,8 @@ def make_service_info(
 
 
 @pytest.fixture(autouse=True)
-def load_custom_integrations(enable_custom_integrations):
-    """Let Home Assistant find the integration under custom_components."""
+def load_custom_integrations(enable_custom_integrations, mock_bluetooth):
+    """Let Home Assistant find the integration and set up bluetooth without a radio."""
     yield
 
 
