@@ -16,7 +16,7 @@ ToDo: support the moving RGB light thingit for the effect light.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, ClassVar
 
 from homeassistant.components.light import (
     ATTR_BRIGHTNESS,
@@ -92,7 +92,7 @@ class BerbelWhiteLight(BerbelLightBase):
     """
 
     _attr_color_mode = ColorMode.COLOR_TEMP
-    _attr_supported_color_modes = {ColorMode.COLOR_TEMP}
+    _attr_supported_color_modes: ClassVar[dict[str,int]] = {ColorMode.COLOR_TEMP}
 
     def _read_brightness(self) -> int | None:
         """Return the channel brightness byte from the last state frame."""
@@ -199,7 +199,7 @@ class BerbelEffectLight(BerbelLightBase):
     """The effect light on the side of the hood, which runs in either color mode or in white mode."""
 
     _attr_translation_key = "effect_light"
-    _attr_supported_color_modes = {ColorMode.RGB, ColorMode.COLOR_TEMP}
+    _attr_supported_color_modes: ClassVar[dict[str,int]] = {ColorMode.RGB, ColorMode.COLOR_TEMP}
 
     def __init__(self, device: BerbelDevice) -> None:
         """Bind the entity to the effect light channel."""

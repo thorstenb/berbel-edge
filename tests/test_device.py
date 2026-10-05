@@ -14,7 +14,6 @@ import importlib.util
 from pathlib import Path
 
 import pytest
-
 from berbel_ble import BerbelDevice, LiftMotion
 from berbel_ble.const import (
     CHAR_COMMAND,

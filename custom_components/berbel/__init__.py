@@ -11,7 +11,6 @@ from __future__ import annotations
 import logging
 
 from bleak_retry_connector import close_stale_connections_by_address
-
 from homeassistant.components import bluetooth
 from homeassistant.components.bluetooth import (
     BluetoothCallbackMatcher,

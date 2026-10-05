@@ -9,7 +9,7 @@ keeps the fan running for a while before it switches off on its own.
 from __future__ import annotations
 
 import math
-from typing import Any
+from typing import Any, ClassVar
 
 from homeassistant.components.fan import FanEntity, FanEntityFeature
 from homeassistant.core import HomeAssistant
@@ -54,7 +54,7 @@ class BerbelFan(BerbelEntity, FanEntity):
         | FanEntityFeature.PRESET_MODE
     )
     _attr_speed_count = 3
-    _attr_preset_modes = [PRESET_MODE_INTENSIVE, PRESET_MODE_RUN_ON]
+    _attr_preset_modes: ClassVar[list[str]] = [PRESET_MODE_INTENSIVE, PRESET_MODE_RUN_ON]
 
     def __init__(self, device: BerbelDevice) -> None:
         """Set up the fan entity for the given device."""

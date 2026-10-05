@@ -8,7 +8,6 @@ value the protocol defines.
 """
 
 import pytest
-
 from berbel_ble import BerbelSettings, BerbelState, LiftMotion
 
 
