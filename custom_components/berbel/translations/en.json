@@ -1,0 +1,39 @@
+{
+  "config": {
+    "flow_title": "{name}",
+    "step": {
+      "user": {
+        "description": "Pick the Berbel Skyline to set up.",
+        "data": {
+          "address": "Device"
+        }
+      },
+      "bluetooth_confirm": {
+        "description": "Do you want to set up {name}?"
+      }
+    },
+    "abort": {
+      "already_configured": "Device is already configured",
+      "already_in_progress": "Configuration flow is already in progress",
+      "no_devices_found": "No unconfigured Berbel Skylines were found"
+    }
+  },
+  "entity": {
+    "light": {
+      "down_light": {
+        "name": "Down light"
+      },
+      "top_light": {
+        "name": "Top light"
+      },
+      "effect_light": {
+        "name": "Effect light"
+      }
+    },
+    "cover": {
+      "lift": {
+        "name": "Lift"
+      }
+    }
+  }
+}
