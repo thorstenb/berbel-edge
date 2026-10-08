@@ -21,10 +21,10 @@
   "entity": {
     "light": {
       "down_light": {
-        "name": "Down light"
+        "name": "Hob light"
       },
       "top_light": {
-        "name": "Top light"
+        "name": "Uplight"
       },
       "effect_light": {
         "name": "Effect light"

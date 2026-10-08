@@ -1,0 +1,39 @@
+{
+  "config": {
+    "flow_title": "{name}",
+    "step": {
+      "user": {
+        "description": "Auswahl der zu konfigurierenden Berbel Skyline.",
+        "data": {
+          "address": "Gerät"
+        }
+      },
+      "bluetooth_confirm": {
+        "description": "Soll {name} konfiguriert werden?"
+      }
+    },
+    "abort": {
+      "already_configured": "Gerät ist bereits konfiguriert",
+      "already_in_progress": "Konfigurationsvorgang läuft bereits",
+      "no_devices_found": "Keine unkonfigurierten Berbel Skylines gefunden"
+    }
+  },
+  "entity": {
+    "light": {
+      "down_light": {
+        "name": "Kochfeldbeleuchtung"
+      },
+      "top_light": {
+        "name": "Uplight"
+      },
+      "effect_light": {
+        "name": "Effektbeleuchtung"
+      }
+    },
+    "cover": {
+      "lift": {
+        "name": "Liftfunktion"
+      }
+    }
+  }
+}
